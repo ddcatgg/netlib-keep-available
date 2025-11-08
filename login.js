@@ -156,7 +156,13 @@ async function main() {
     summaryMessage += `${result.message}\n`;
   });
 
-  await sendWecom(summaryMessage);
+  if (wecomUrl) {
+    console.log('\n🥳检测到已配置企业微信 Webhook，准备发送通知...');
+    await sendWecom(summaryMessage);
+  } else {
+    console.log('\n✨未配置企业微信 Webhook，跳过企业微信通知。');
+  }
+
   await sendTelegram(summaryMessage);
 
   console.log('\n✅ 所有账号处理完成！');
