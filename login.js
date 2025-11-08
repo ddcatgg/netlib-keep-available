@@ -7,7 +7,7 @@ const wecomUrl = process.env.WECOM_WEBHOOK_URL;
 const accounts = process.env.ACCOUNTS;
 
 if (!accounts) {
-  console.log('❌ 未配置账号');
+  console.error('❌ 未配置账号');
   process.exit(1);
 }
 
@@ -18,7 +18,7 @@ const accountList = accounts.split(/[,;]/).map(account => {
 }).filter(acc => acc.user && acc.pass);
 
 if (accountList.length === 0) {
-  console.log('❌ 账号格式错误，应为 username1:password1,username2:password2');
+  console.error('❌ 账号格式错误，应为 username1:password1,username2:password2');
   process.exit(1);
 }
 
@@ -38,7 +38,7 @@ async function sendTelegram(message) {
     }, { timeout: 10000 });
     console.log('✅ Telegram 通知发送成功');
   } catch (e) {
-    console.log('⚠️ Telegram 发送失败');
+    console.warn('⚠️ Telegram 发送失败');
   }
 }
 
@@ -53,16 +53,21 @@ async function sendWecom(message) {
 
   try {
     // 企业微信机器人 webhook 要求的文本格式
-    await axios.post(wecomUrl, {
+    const response = await axios.post(wecomUrl, {
       msgtype: 'text',
       text: {
         content: fullMessage
       }
     }, { timeout: 10000 });
 
-    console.log('✅ 企业微信 通知发送成功');
+    // 检查企业微信返回值
+    if (response.data.errcode === 0) {
+      console.log('🥳 企业微信 通知发送成功');
+    } else {
+      console.warn('⚠️ 企业微信 发送失败', `错误码: ${response.data.errcode}, 错误信息: ${response.data.errmsg}`);
+    }
   } catch (e) {
-    console.log('⚠️ 企业微信 发送失败', e.message);
+    console.warn('⚠️ 企业微信 发送失败', e.message);
   }
 }
 
@@ -112,12 +117,12 @@ async function loginWithAccount(user, pass) {
       result.success = true;
       result.message = `✅ ${user} 登录成功`;
     } else {
-      console.log(`❌ ${user} - 登录失败`);
+      console.error(`❌ ${user} - 登录失败`);
       result.message = `❌ ${user} 登录失败`;
     }
 
   } catch (e) {
-    console.log(`❌ ${user} - 登录异常: ${e.message}`);
+    console.error(`❌ ${user} - 登录异常: ${e.message}`);
     result.message = `❌ ${user} 登录异常: ${e.message}`;
   } finally {
     if (page) await page.close();
@@ -157,10 +162,10 @@ async function main() {
   });
 
   if (wecomUrl) {
-    console.log('\n🥳检测到已配置企业微信 Webhook，准备发送通知...');
+    console.log('\n🥳 检测到已配置企业微信 Webhook，准备发送通知...');
     await sendWecom(summaryMessage);
   } else {
-    console.log('\n✨未配置企业微信 Webhook，跳过企业微信通知。');
+    console.log('\n✨ 未配置企业微信 Webhook，跳过企业微信通知。');
   }
 
   await sendTelegram(summaryMessage);
@@ -168,4 +173,7 @@ async function main() {
   console.log('\n✅ 所有账号处理完成！');
 }
 
-main().catch(console.error);
+main().catch(error => {
+  console.error('程序运行出错:', error);
+  process.exit(1);
+});
